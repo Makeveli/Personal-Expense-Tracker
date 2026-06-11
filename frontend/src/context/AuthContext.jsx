@@ -20,7 +20,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('username', userData.username);
     };
 
-    const logout = () => {
+    const logout = async () => {
+        if (token) {
+            try {
+                await fetch('http://localhost:8080/api/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+            } catch (err) {
+                console.error('Logout failed:', err);
+            }
+        }
         setUser(null);
         setToken(null);
         localStorage.removeItem('token');

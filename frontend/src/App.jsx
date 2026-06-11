@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginForm from './components/LoginForm';
+import { useIdleTimeout } from './hooks/useIdleTimeout';
 import { 
   Plus, Trash2, Wallet, ArrowUpCircle, ArrowDownCircle, 
   PieChart as PieChartIcon, BarChart3, LogOut 
@@ -18,6 +19,23 @@ const FinanceApp = () => {
   const [budgets, setBudgets] = useState([]);
   const [transactionTypes, setTransactionTypes] = useState([{ name: 'INCOME' }, { name: 'EXPENSE' }]); // Fallback defaults
   const [categories, setCategories] = useState([{ name: 'Food' }, { name: 'Rent' }, { name: 'Salary' }]); // Fallback
+
+  const handleTimeout = () => {
+    logout();
+  };
+
+  const { showWarning, extendSession } = useIdleTimeout(15, 1, handleTimeout); // 15 mins timeout, 1 min warning
+
+  const handleExtendSession = async () => {
+    try {
+      await axios.post('http://localhost:8080/api/auth/extend-session', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      extendSession();
+    } catch (err) {
+      logout();
+    }
+  };
   
   // State for new transaction
   const [newTx, setNewTx] = useState({
@@ -111,6 +129,30 @@ const FinanceApp = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
+      {showWarning && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Session Expiring Soon</h2>
+            <p className="text-gray-600 mb-8">
+              Your session has been inactive and will expire in 1 minute. Would you like to continue?
+            </p>
+            <div className="flex gap-4 justify-center">
+              <button 
+                onClick={logout}
+                className="px-6 py-2 bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Log Out
+              </button>
+              <button 
+                onClick={handleExtendSession}
+                className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Continue Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <nav className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

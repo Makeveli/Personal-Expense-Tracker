@@ -7,6 +7,7 @@ import com.example.demo.model.TransactionType;
 import com.example.demo.repository.BudgetRepository;
 import com.example.demo.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -19,16 +20,20 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class FinanceService {
     private final TransactionRepository transactionRepository;
     private final BudgetRepository budgetRepository;
 
     public DashboardSummary getDashboardSummary(String monthYear) {
+        log.info("Calculating dashboard summary for monthYear: {}", monthYear);
         LocalDate start = LocalDate.parse(monthYear + "-01");
         LocalDate end = start.plusMonths(1).minusDays(1);
 
         List<Transaction> transactions = transactionRepository.findByDateBetween(start, end);
         List<Budget> budgets = budgetRepository.findByMonthYear(monthYear);
+        
+        log.debug("Found {} transactions and {} budgets for {}", transactions.size(), budgets.size(), monthYear);
 
         BigDecimal totalIncome = transactions.stream()
                 .filter(t -> "INCOME".equalsIgnoreCase(t.getType().getName()))
@@ -60,7 +65,8 @@ public class FinanceService {
                 summary.setPercentage(summary.getSpent().divide(b.getLimitAmount(), 4, RoundingMode.HALF_UP).multiply(new BigDecimal(100)).doubleValue());
             }
         });
-
+        
+        log.info("Dashboard summary generated: Income={}, Expenses={}, Balance={}", totalIncome, totalExpenses, totalIncome.subtract(totalExpenses));
         return new DashboardSummary(totalIncome, totalExpenses, totalIncome.subtract(totalExpenses), categorySummaries);
     }
 }

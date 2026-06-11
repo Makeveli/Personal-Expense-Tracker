@@ -7,6 +7,7 @@ import com.example.demo.repository.BudgetRepository;
 import com.example.demo.repository.TransactionRepository;
 import com.example.demo.service.FinanceService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -17,6 +18,7 @@ import java.util.Map;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Slf4j
 public class FinanceController {
     private final TransactionRepository transactionRepository;
     private final BudgetRepository budgetRepository;
@@ -26,11 +28,13 @@ public class FinanceController {
 
     @GetMapping("/transactions")
     public List<Transaction> getAllTransactions() {
+        log.info("Fetching all transactions");
         return transactionRepository.findAll();
     }
 
     @PostMapping("/transactions")
     public Transaction addTransaction(@RequestBody Map<String, Object> payload) {
+        log.info("Adding new transaction: {}", payload);
         Transaction transaction = new Transaction();
         transaction.setDescription((String) payload.get("description"));
         transaction.setAmount(new java.math.BigDecimal(payload.get("amount").toString()));
@@ -38,6 +42,7 @@ public class FinanceController {
         String catName = (String) payload.get("category");
         com.example.demo.model.Category category = categoryRepository.findByName(catName)
             .orElseGet(() -> {
+                log.info("Creating new category: {}", catName);
                 com.example.demo.model.Category newCat = new com.example.demo.model.Category();
                 newCat.setName(catName);
                 return categoryRepository.save(newCat);
@@ -52,20 +57,27 @@ public class FinanceController {
 
         String typeName = (String) payload.get("type");
         com.example.demo.model.TransactionType type = transactionTypeRepository.findByName(typeName)
-            .orElseGet(() -> transactionTypeRepository.save(new com.example.demo.model.TransactionType(null, typeName)));
+            .orElseGet(() -> {
+                log.info("Creating new transaction type: {}", typeName);
+                return transactionTypeRepository.save(new com.example.demo.model.TransactionType(null, typeName));
+            });
         
         transaction.setType(type);
         
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+        log.info("Transaction saved with id: {}", saved.getId());
+        return saved;
     }
 
     @DeleteMapping("/transactions/{id}")
     public void deleteTransaction(@PathVariable Long id) {
+        log.info("Deleting transaction with id: {}", id);
         transactionRepository.deleteById(id);
     }
 
     @GetMapping("/budgets")
     public List<Budget> getBudgets(@RequestParam String monthYear) {
+        log.info("Fetching budgets for month: {}", monthYear);
         return budgetRepository.findByMonthYear(monthYear);
     }
 
@@ -75,26 +87,31 @@ public class FinanceController {
         String catName = (String) payload.get("category");
         java.math.BigDecimal limitAmount = new java.math.BigDecimal(payload.get("limitAmount").toString());
 
-        com.example.demo.model.Category category = categoryRepository.findByName(catName)
-            .orElseGet(() -> categoryRepository.save(new com.example.demo.model.Category(null, catName)));
+        log.info("Setting budget for category {} in month {} to {}", catName, monthYear, limitAmount);
 
-        // We can't rely on the old findByCategoryAndMonthYear signature easily since category is now an object in the DB.
-        // It's cleaner to fetch all for the month and filter, or we just rely on standard JPA.
-        // For simplicity, let's fetch all budgets for the month and update if category matches.
+        com.example.demo.model.Category category = categoryRepository.findByName(catName)
+            .orElseGet(() -> {
+                log.info("Creating new category during budget setup: {}", catName);
+                return categoryRepository.save(new com.example.demo.model.Category(null, catName));
+            });
+
         List<Budget> existingBudgets = budgetRepository.findByMonthYear(monthYear);
         for (Budget b : existingBudgets) {
             if (b.getCategory().getId().equals(category.getId())) {
+                log.info("Updating existing budget id: {}", b.getId());
                 b.setLimitAmount(limitAmount);
                 return budgetRepository.save(b);
             }
         }
 
+        log.info("Creating new budget entry");
         Budget newBudget = new Budget(null, category, limitAmount, monthYear);
         return budgetRepository.save(newBudget);
     }
 
     @GetMapping("/dashboard/summary")
     public DashboardSummary getSummary(@RequestParam String monthYear) {
+        log.info("Generating dashboard summary for month: {}", monthYear);
         return financeService.getDashboardSummary(monthYear);
     }
 }
