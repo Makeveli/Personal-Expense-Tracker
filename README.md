@@ -1,44 +1,45 @@
 # Personal Expense Tracker MVP
 
-A full-stack personal finance application built in under 1 hour for a developer assessment.
+A full-stack personal finance application built for a developer assessment, demonstrating rapid AI-assisted development and clean architecture.
 
 ## Features
-- **Transaction Management:** Add income/expenses, view categorized transaction list, and delete entries.
-- **Budget Planning:** Set monthly spending limits per category.
+- **Authentication & Security:** Custom session management with a 15-minute sliding window expiration and frontend inactivity warning modal. Registration includes email validation.
+- **Transaction Management:** Add income/expenses, view categorized transaction lists, and delete entries.
+- **Budget Planning:** Set monthly spending limits per category (excluding non-budgetable items like "Salary").
 - **Interactive Dashboard:** 
-  - Real-time "Income vs Expense" summary.
-  - **Budget vs Actual Comparison:** Visual bar charts showing spending progress against limits.
+  - Real-time "Income vs Expense" summary and Net Balance.
+  - **Budget vs Actual Comparison:** Visual bar charts showing spending progress against limits. Bars dynamically turn red if expenses exceed the budget.
   - **Data Visualization:** Pie charts for category-wise expense breakdown.
-- **Responsive Design:** Mobile-first UI using Tailwind CSS.
+- **Responsive Design:** Mobile-first UI using Tailwind CSS v4.
 
 ## Tech Stack
 - **Frontend:** React, Tailwind CSS, Recharts, Lucide-React.
-- **Backend:** Spring Boot (Java 17), Spring Data JPA.
-- **Database:** H2 (In-memory) for zero-setup local demonstration (Pivoted from Dockerized Postgres due to environment constraints).
-- **Architecture:** Standard Controller-Service-Repository pattern with DTOs for dashboard summaries.
+- **Backend:** Spring Boot 3.x (Java 17), Spring Data JPA, Spring Security, SLF4J for robust logging.
+- **Database:** PostgreSQL (Dockerized) for production-grade relational integrity.
+- **Architecture:** Standard Controller-Service-Repository pattern with DTOs and Global Exception Handling.
 
-## Feature Prioritization Rationale
-- **Must Haves:** Transaction CRUD and basic dashboard were prioritized as the core value proposition.
-- **Should Haves:** "Budget vs Actual" and "Data Viz" were selected to provide immediate analytical value to the user, showcasing the ability to integrate charting libraries like Recharts.
-- **Skipped:** Edit functionality and real Authentication were skipped to focus on high-impact visualization features within the 1-hour limit.
-
-## AI Tools Used
-- **Gemini CLI:** Used for project scaffolding, generating boilerplate logic for entities and controllers, and rapid frontend component development.
-- **Impact:** Accelerated the development of the charting logic and Tailwind styling significantly, allowing for a polished UI in minimal time.
+## Documentation
+Comprehensive documentation required for the assessment can be found in the `docs/` folder:
+- **[Architecture Overview](docs/architecture/architecture.md):** Detailed breakdown of the frontend, backend, and data flow.
+- **[Justification Document](docs/justification.md):** Rationale for feature prioritization, tech stack choices, and AI workflow.
+- **[Setup Instructions](docs/setup/setup_instructions.md):** Step-by-step guide to running the application.
 
 ## Local Setup (Max 3 Commands)
 
-1. **Start Backend:**
+1. **Start the Database:**
    ```bash
-   cd backend && ./mvnw spring-boot:run
+   docker-compose up -d
    ```
-2. **Start Frontend:**
+2. **Start the Backend:**
+   ```bash
+   cd backend && ./mvnw clean spring-boot:run
+   ```
+3. **Start the Frontend:**
    ```bash
    cd frontend && npm install && npm run dev
    ```
 
 ## Next Steps with More Time
-1. **User Authentication:** Integrate Spring Security with JWT or OAuth2.
-2. **Persistent Storage:** Migrate back to a production-grade database like PostgreSQL.
-3. **Recurring Transactions:** Automate monthly bills/salary entries.
-4. **Export Functionality:** Support CSV/PDF exports for financial records.
+1. **Recurring Transactions:** Automate monthly bills/salary entries.
+2. **Export Functionality:** Support CSV/PDF exports for financial records.
+3. **Savings Goals:** Visual progress trackers for specific long-term savings targets.
