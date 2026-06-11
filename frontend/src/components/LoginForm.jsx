@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 const LoginForm = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { login } = useAuth();
@@ -13,8 +14,10 @@ const LoginForm = () => {
         e.preventDefault();
         setError('');
         const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+        const payload = isLogin ? { username, password } : { username, email, password };
+        
         try {
-            const response = await axios.post(`http://localhost:8080${endpoint}`, { username, password });
+            const response = await axios.post(`http://localhost:8080${endpoint}`, payload);
             if (isLogin) {
                 login({ username: response.data.username }, response.data.token);
             } else {
@@ -43,6 +46,18 @@ const LoginForm = () => {
                             required
                         />
                     </div>
+                    {!isLogin && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Email Address</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                                required={!isLogin}
+                            />
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Password</label>
                         <input

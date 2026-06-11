@@ -73,7 +73,10 @@ const FinanceApp = () => {
       if (catRes.data && catRes.data.length > 0) {
           setCategories(catRes.data);
           setNewTx(prev => ({ ...prev, category: catRes.data[0].name }));
-          setNewBudget(prev => ({ ...prev, category: catRes.data[0].name }));
+          const budgetCats = catRes.data.filter(c => c.name.toLowerCase() !== 'salary');
+          if (budgetCats.length > 0) {
+              setNewBudget(prev => ({ ...prev, category: budgetCats[0].name }));
+          }
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -91,7 +94,7 @@ const FinanceApp = () => {
         { ...newTx, amount: parseFloat(newTx.amount) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setNewTx({ description: '', amount: '', category: 'Food', type: 'EXPENSE' });
+      setNewTx({ description: '', amount: '', category: categories[0]?.name || 'Food', type: 'EXPENSE' });
       fetchData();
     } catch (err) {
       alert("Error adding transaction");
@@ -105,7 +108,8 @@ const FinanceApp = () => {
         { ...newBudget, limitAmount: parseFloat(newBudget.limitAmount), monthYear },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setNewBudget({ category: 'Food', limitAmount: '' });
+      const budgetCats = categories.filter(c => c.name.toLowerCase() !== 'salary');
+      setNewBudget({ category: budgetCats[0]?.name || 'Food', limitAmount: '' });
       fetchData();
     } catch (err) {
       alert("Error setting budget");
@@ -245,7 +249,13 @@ const FinanceApp = () => {
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="Limit" fill="#E5E7EB" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Actual" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Actual" radius={[4, 4, 0, 0]}>
+                      {budgets.map((b, index) => {
+                        const actual = summary?.categorySummaries?.[b.category?.name]?.spent || 0;
+                        const limit = b.limitAmount;
+                        return <Cell key={`cell-${index}`} fill={actual > limit ? '#EF4444' : '#3B82F6'} />;
+                      })}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -319,7 +329,7 @@ const FinanceApp = () => {
                     value={newBudget.category}
                     onChange={e => setNewBudget({...newBudget, category: e.target.value})}
                   >
-                    {categories.map(c => (
+                    {categories.filter(c => c.name.toLowerCase() !== 'salary').map(c => (
                       <option key={c.name} value={c.name}>{c.name}</option>
                     ))}
                   </select>
