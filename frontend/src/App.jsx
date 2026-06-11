@@ -1,353 +1,339 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginForm from './components/LoginForm';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell
-} from 'recharts';
-import { 
-  PlusCircle, Trash2, Wallet, ArrowUpCircle, ArrowDownCircle, 
-  PieChart as PieIcon, LayoutDashboard, Target
+  Plus, Trash2, Wallet, ArrowUpCircle, ArrowDownCircle, 
+  PieChart as PieChartIcon, BarChart3, LogOut 
 } from 'lucide-react';
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
+} from 'recharts';
 
-const API_BASE = 'http://localhost:8080/api';
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
-
-function App() {
+const FinanceApp = () => {
+  const { user, token, logout } = useAuth();
   const [transactions, setTransactions] = useState([]);
-  const [summary, setSummary] = useState({
-    totalIncome: 0,
-    totalExpenses: 0,
-    balance: 0,
-    categorySummaries: {}
-  });
-  const [newTransaction, setNewTransaction] = useState({
+  const [summary, setSummary] = useState(null);
+  const [budgets, setBudgets] = useState([]);
+  
+  // State for new transaction
+  const [newTx, setNewTx] = useState({
     description: '',
     amount: '',
     category: 'Food',
-    type: 'EXPENSE',
-    date: new Date().toISOString().split('T')[0]
+    type: 'EXPENSE'
   });
+
+  // State for new budget
   const [newBudget, setNewBudget] = useState({
     category: 'Food',
     limitAmount: ''
   });
-  const [monthYear, setMonthYear] = useState(new Date().toISOString().slice(0, 7));
+
+  const monthYear = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+  const fetchData = async () => {
+    if (!token) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [txRes, sumRes, budgetRes] = await Promise.all([
+        axios.get('http://localhost:8080/api/transactions', { headers }),
+        axios.get(`http://localhost:8080/api/dashboard/summary?monthYear=${monthYear}`, { headers }),
+        axios.get(`http://localhost:8080/api/budgets?monthYear=${monthYear}`, { headers })
+      ]);
+      setTransactions(txRes.data);
+      setSummary(sumRes.data);
+      setBudgets(budgetRes.data);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    }
+  };
 
   useEffect(() => {
     fetchData();
-  }, [monthYear]);
-
-  const fetchData = async () => {
-    try {
-      const transRes = await axios.get(`${API_BASE}/transactions`);
-      setTransactions(transRes.data);
-      
-      const summaryRes = await axios.get(`${API_BASE}/dashboard/summary?monthYear=${monthYear}`);
-      setSummary(summaryRes.data);
-    } catch (err) {
-      console.error("Error fetching data", err);
-    }
-  };
+  }, [token]);
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/transactions`, newTransaction);
-      setNewTransaction({ ...newTransaction, description: '', amount: '' });
+      await axios.post('http://localhost:8080/api/transactions', 
+        { ...newTx, amount: parseFloat(newTx.amount) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNewTx({ description: '', amount: '', category: 'Food', type: 'EXPENSE' });
       fetchData();
     } catch (err) {
-      console.error("Error adding transaction", err);
-    }
-  };
-
-  const handleDeleteTransaction = async (id) => {
-    try {
-      await axios.delete(`${API_BASE}/transactions/${id}`);
-      fetchData();
-    } catch (err) {
-      console.error("Error deleting transaction", err);
+      alert("Error adding transaction");
     }
   };
 
   const handleSetBudget = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/budgets`, {
-        ...newBudget,
-        monthYear
-      });
-      setNewBudget({ ...newBudget, limitAmount: '' });
+      await axios.post('http://localhost:8080/api/budgets', 
+        { ...newBudget, limitAmount: parseFloat(newBudget.limitAmount), monthYear },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNewBudget({ category: 'Food', limitAmount: '' });
       fetchData();
     } catch (err) {
-      console.error("Error setting budget", err);
+      alert("Error setting budget");
     }
   };
 
-  const pieData = Object.entries(summary.categorySummaries).map(([name, data]) => ({
-    name,
-    value: data.spent
-  })).filter(d => d.value > 0);
+  const handleDeleteTransaction = async (id) => {
+    try {
+      await axios.delete(`http://localhost:8080/api/transactions/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchData();
+    } catch (err) {
+      alert("Error deleting transaction");
+    }
+  };
 
-  const budgetData = Object.entries(summary.categorySummaries).map(([name, data]) => ({
-    name,
-    spent: data.spent,
-    budget: data.budget
-  })).filter(d => d.budget > 0);
+  if (!user) return <LoginForm />;
+
+  const COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 p-4 md:p-8 font-sans">
-      <div className="max-w-6xl mx-auto">
-        <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Wallet className="text-blue-500" /> Personal Expense Tracker
-          </h1>
-          <div className="flex items-center gap-2 bg-gray-800 p-2 rounded-lg">
-            <input 
-              type="month" 
-              value={monthYear} 
-              onChange={(e) => setMonthYear(e.target.value)}
-              className="bg-transparent border-none focus:ring-0 text-white"
-            />
+    <div className="min-h-screen bg-gray-50 pb-12">
+      {/* Header */}
+      <nav className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wallet className="text-blue-600 w-8 h-8" />
+            <h1 className="text-xl font-bold text-gray-900">ExpenseTracker</h1>
           </div>
-        </header>
+          <div className="flex items-center gap-4">
+            <span className="text-gray-600 font-medium">Hi, {user.username}</span>
+            <button 
+              onClick={logout}
+              className="flex items-center gap-1 text-red-600 hover:text-red-700 font-semibold"
+            >
+              <LogOut size={18} /> Logout
+            </button>
+          </div>
+        </div>
+      </nav>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Total Income</span>
-              <ArrowUpCircle className="text-green-500" />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+        {/* Stats Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className="bg-green-100 p-3 rounded-full"><ArrowUpCircle className="text-green-600" /></div>
+            <div>
+              <p className="text-sm text-gray-500 uppercase font-semibold">Total Income</p>
+              <p className="text-2xl font-bold text-gray-900">${summary?.totalIncome?.toFixed(2) || '0.00'}</p>
             </div>
-            <p className="text-2xl font-bold text-green-400">${summary.totalIncome.toFixed(2)}</p>
           </div>
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Total Expenses</span>
-              <ArrowDownCircle className="text-red-500" />
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className="bg-red-100 p-3 rounded-full"><ArrowDownCircle className="text-red-600" /></div>
+            <div>
+              <p className="text-sm text-gray-500 uppercase font-semibold">Total Expenses</p>
+              <p className="text-2xl font-bold text-gray-900">${summary?.totalExpenses?.toFixed(2) || '0.00'}</p>
             </div>
-            <p className="text-2xl font-bold text-red-400">${summary.totalExpenses.toFixed(2)}</p>
           </div>
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg shadow-blue-900/20">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-400">Net Balance</span>
-              <LayoutDashboard className="text-blue-500" />
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className="bg-blue-100 p-3 rounded-full"><Wallet className="text-blue-600" /></div>
+            <div>
+              <p className="text-sm text-gray-500 uppercase font-semibold">Net Balance</p>
+              <p className="text-2xl font-bold text-gray-900">${summary?.balance?.toFixed(2) || '0.00'}</p>
             </div>
-            <p className={`text-2xl font-bold ${summary.balance >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
-              ${summary.balance.toFixed(2)}
-            </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Charts Section */}
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <PieIcon className="text-purple-500" /> Expense Breakdown
-            </h2>
-            <div className="h-[300px]">
-              {pieData.length > 0 ? (
+          <div className="space-y-8">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-6">
+                <PieChartIcon className="text-blue-600" size={20} />
+                <h3 className="font-bold text-gray-800">Expenses by Category</h3>
+              </div>
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
+                      data={summary?.categorySummaries ? Object.entries(summary.categorySummaries).map(([name, catSum]) => ({ name, value: catSum.spent })) : []}
                       innerRadius={60}
-                      outerRadius={100}
+                      outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {pieData.map((entry, index) => (
+                      {Object.entries(summary?.categorySummaries || {}).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', color: '#fff' }} />
+                    <Tooltip />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">No data available</div>
-              )}
+              </div>
             </div>
-          </div>
 
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-              <Target className="text-yellow-500" /> Budget vs Actual
-            </h2>
-            <div className="h-[300px]">
-              {budgetData.length > 0 ? (
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 mb-6">
+                <BarChart3 className="text-blue-600" size={20} />
+                <h3 className="font-bold text-gray-800">Budget vs Actual</h3>
+              </div>
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={budgetData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="name" stroke="#9ca3af" />
-                    <YAxis stroke="#9ca3af" />
-                    <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none', color: '#fff' }} />
+                  <BarChart data={budgets.map(b => ({
+                    category: b.category,
+                    Limit: b.limitAmount,
+                    Actual: summary?.categorySummaries?.[b.category]?.spent || 0
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="category" />
+                    <YAxis />
+                    <Tooltip />
                     <Legend />
-                    <Bar dataKey="spent" fill="#ef4444" name="Spent" />
-                    <Bar dataKey="budget" fill="#10b981" name="Budget" />
+                    <Bar dataKey="Limit" fill="#E5E7EB" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Actual" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-500">No budgets set</div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Add Transaction Form */}
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 h-fit">
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <PlusCircle className="text-green-500" /> Add Transaction
-            </h2>
-            <form onSubmit={handleAddTransaction} className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Description</label>
-                <input 
-                  required
-                  type="text" 
-                  value={newTransaction.description}
-                  onChange={(e) => setNewTransaction({...newTransaction, description: e.target.value})}
-                  className="w-full bg-gray-700 border-gray-600 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Rent, Groceries, Salary..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Amount</label>
-                  <input 
+          {/* Forms Section */}
+          <div className="space-y-8">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <Plus size={20} className="text-blue-600" /> Add Transaction
+              </h3>
+              <form onSubmit={handleAddTransaction} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    placeholder="Description"
+                    className="col-span-2 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={newTx.description}
+                    onChange={e => setNewTx({...newTx, description: e.target.value})}
                     required
-                    type="number" 
-                    step="0.01"
-                    value={newTransaction.amount}
-                    onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})}
-                    className="w-full bg-gray-700 border-gray-600 rounded-lg p-2"
-                    placeholder="0.00"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Type</label>
+                  <input
+                    type="number"
+                    placeholder="Amount"
+                    className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={newTx.amount}
+                    onChange={e => setNewTx({...newTx, amount: e.target.value})}
+                    required
+                  />
                   <select 
-                    value={newTransaction.type}
-                    onChange={(e) => setNewTransaction({...newTransaction, type: e.target.value})}
-                    className="w-full bg-gray-700 border-gray-600 rounded-lg p-2"
+                    className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                    value={newTx.category}
+                    onChange={e => setNewTx({...newTx, category: e.target.value})}
                   >
-                    <option value="EXPENSE">Expense</option>
-                    <option value="INCOME">Income</option>
+                    {['Food', 'Rent', 'Travel', 'Utilities', 'Salary', 'Leisure', 'Misc'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
+                  <div className="col-span-2 flex gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => setNewTx({...newTx, type: 'INCOME'})}
+                      className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${newTx.type === 'INCOME' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                    >
+                      Income
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setNewTx({...newTx, type: 'EXPENSE'})}
+                      className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${newTx.type === 'EXPENSE' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                    >
+                      Expense
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Category</label>
-                <select 
-                  value={newTransaction.category}
-                  onChange={(e) => setNewTransaction({...newTransaction, category: e.target.value})}
-                  className="w-full bg-gray-700 border-gray-600 rounded-lg p-2"
-                >
-                  <option>Food</option>
-                  <option>Transport</option>
-                  <option>Entertainment</option>
-                  <option>Utilities</option>
-                  <option>Salary</option>
-                  <option>Rent</option>
-                  <option>Other</option>
-                </select>
-              </div>
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                Add Transaction
-              </button>
-            </form>
+                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+                  Save Transaction
+                </button>
+              </form>
+            </div>
 
-            <div className="mt-8 pt-8 border-t border-gray-700">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Target className="text-yellow-500" /> Set Monthly Budget
-              </h2>
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <BarChart3 size={20} className="text-blue-600" /> Set Monthly Budget
+              </h3>
               <form onSubmit={handleSetBudget} className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Category</label>
+                <div className="grid grid-cols-2 gap-4">
                   <select 
+                    className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     value={newBudget.category}
-                    onChange={(e) => setNewBudget({...newBudget, category: e.target.value})}
-                    className="w-full bg-gray-700 border-gray-600 rounded-lg p-2"
+                    onChange={e => setNewBudget({...newBudget, category: e.target.value})}
                   >
-                    <option>Food</option>
-                    <option>Transport</option>
-                    <option>Entertainment</option>
-                    <option>Utilities</option>
-                    <option>Rent</option>
-                    <option>Other</option>
+                    {['Food', 'Rent', 'Travel', 'Utilities', 'Salary', 'Leisure', 'Misc'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Monthly Limit</label>
-                  <input 
-                    required
-                    type="number" 
+                  <input
+                    type="number"
+                    placeholder="Monthly Limit"
+                    className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     value={newBudget.limitAmount}
-                    onChange={(e) => setNewBudget({...newBudget, limitAmount: e.target.value})}
-                    className="w-full bg-gray-700 border-gray-600 rounded-lg p-2"
-                    placeholder="500.00"
+                    onChange={e => setNewBudget({...newBudget, limitAmount: e.target.value})}
+                    required
                   />
                 </div>
-                <button className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                <button type="submit" className="w-full bg-gray-800 text-white py-2 rounded-lg font-bold hover:bg-gray-900 transition-colors">
                   Update Budget
                 </button>
               </form>
             </div>
           </div>
+        </div>
 
-          {/* Transactions List */}
-          <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 lg:col-span-2">
-            <h2 className="text-xl font-semibold mb-6">Recent Transactions</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="text-gray-400 border-b border-gray-700">
-                    <th className="pb-3 px-2">Date</th>
-                    <th className="pb-3 px-2">Description</th>
-                    <th className="pb-3 px-2">Category</th>
-                    <th className="pb-3 px-2 text-right">Amount</th>
-                    <th className="pb-3 px-2"></th>
+        {/* Transactions List */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 border-b flex justify-between items-center">
+            <h3 className="font-bold text-gray-800">Recent Transactions</h3>
+            <span className="text-sm text-gray-500">{transactions.length} entries</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="text-gray-400 text-xs uppercase font-bold border-b">
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Description</th>
+                  <th className="px-6 py-4">Category</th>
+                  <th className="px-6 py-4 text-right">Amount</th>
+                  <th className="px-6 py-4"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {transactions.slice().reverse().map(tx => (
+                  <tr key={tx.id} className="hover:bg-gray-50 group transition-colors">
+                    <td className="px-6 py-4 text-sm text-gray-600">{tx.date}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{tx.description}</td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full font-semibold uppercase">{tx.category}</span>
+                    </td>
+                    <td className={`px-6 py-4 text-right font-bold ${tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
+                      {tx.type === 'INCOME' ? '+' : '-'}${tx.amount.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button onClick={() => handleDeleteTransaction(tx.id)} className="text-gray-300 hover:text-red-600 transition-colors">
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                  {transactions.slice().reverse().map((t) => (
-                    <tr key={t.id} className="hover:bg-gray-750 transition-colors">
-                      <td className="py-4 px-2 text-sm text-gray-400">{t.date}</td>
-                      <td className="py-4 px-2 font-medium">{t.description}</td>
-                      <td className="py-4 px-2">
-                        <span className="bg-gray-700 text-xs px-2 py-1 rounded text-gray-300">
-                          {t.category}
-                        </span>
-                      </td>
-                      <td className={`py-4 px-2 text-right font-bold ${t.type === 'INCOME' ? 'text-green-400' : 'text-red-400'}`}>
-                        {t.type === 'INCOME' ? '+' : '-'}${t.amount.toFixed(2)}
-                      </td>
-                      <td className="py-4 px-2 text-right">
-                        <button 
-                          onClick={() => handleDeleteTransaction(t.id)}
-                          className="text-gray-500 hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {transactions.length === 0 && (
-                    <tr>
-                      <td colSpan="5" className="py-8 text-center text-gray-500">No transactions found</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
-}
+};
+
+const App = () => (
+  <AuthProvider>
+    <FinanceApp />
+  </AuthProvider>
+);
 
 export default App;
