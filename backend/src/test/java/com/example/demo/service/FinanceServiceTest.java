@@ -3,6 +3,8 @@ package com.example.demo.service;
 import com.example.demo.dto.DashboardSummary;
 import com.example.demo.model.Budget;
 import com.example.demo.model.Transaction;
+import com.example.demo.model.TransactionType;
+import com.example.demo.model.Category;
 import com.example.demo.repository.BudgetRepository;
 import com.example.demo.repository.TransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,12 +44,18 @@ class FinanceServiceTest {
         LocalDate start = LocalDate.parse("2026-06-01");
         LocalDate end = LocalDate.parse("2026-06-30");
 
-        Transaction income = new Transaction(1L, "Salary", new BigDecimal("5000"), LocalDate.of(2026, 6, 1), "Salary", Transaction.TransactionType.INCOME);
-        Transaction expense = new Transaction(2L, "Food", new BigDecimal("200"), LocalDate.of(2026, 6, 2), "Food", Transaction.TransactionType.EXPENSE);
-        
+        TransactionType incomeType = new TransactionType(1L, "INCOME");
+        TransactionType expenseType = new TransactionType(2L, "EXPENSE");
+
+        Category salaryCategory = new Category(1L, "Salary");
+        Category foodCategory = new Category(2L, "Food");
+
+        Transaction income = new Transaction(1L, "Salary", new BigDecimal("5000"), LocalDate.of(2026, 6, 1), salaryCategory, incomeType);
+        Transaction expense = new Transaction(2L, "Food", new BigDecimal("200"), LocalDate.of(2026, 6, 2), foodCategory, expenseType);
+
         when(transactionRepository.findByDateBetween(start, end)).thenReturn(List.of(income, expense));
-        
-        Budget budget = new Budget(1L, "Food", new BigDecimal("500"), monthYear);
+
+        Budget budget = new Budget(1L, foodCategory, new BigDecimal("500"), monthYear);
         when(budgetRepository.findByMonthYear(monthYear)).thenReturn(List.of(budget));
 
         DashboardSummary summary = financeService.getDashboardSummary(monthYear);

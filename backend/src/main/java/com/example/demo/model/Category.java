@@ -4,22 +4,17 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.math.BigDecimal;
 
 @Entity
-@Table(name = "budgets")
+@Table(name = "categories")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Budget {
+public class Category {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "category_id")
-    private Category category;
-    
-    private BigDecimal limitAmount;
-    private String monthYear; // e.g., "2026-06"
+    @Column(unique = true, nullable = false)
+    private String name;
 }

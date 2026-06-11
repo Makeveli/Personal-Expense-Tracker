@@ -20,12 +20,12 @@ public class Transaction {
     private String description;
     private BigDecimal amount;
     private LocalDate date;
-    private String category;
+    
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "category_id")
+    private Category category;
 
-    @Enumerated(EnumType.STRING)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "type_id")
     private TransactionType type;
-
-    public enum TransactionType {
-        INCOME, EXPENSE
-    }
 }

@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.dto.DashboardSummary;
 import com.example.demo.model.Budget;
 import com.example.demo.model.Transaction;
+import com.example.demo.model.TransactionType;
 import com.example.demo.repository.BudgetRepository;
 import com.example.demo.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,12 +31,12 @@ public class FinanceService {
         List<Budget> budgets = budgetRepository.findByMonthYear(monthYear);
 
         BigDecimal totalIncome = transactions.stream()
-                .filter(t -> t.getType() == Transaction.TransactionType.INCOME)
+                .filter(t -> "INCOME".equalsIgnoreCase(t.getType().getName()))
                 .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal totalExpenses = transactions.stream()
-                .filter(t -> t.getType() == Transaction.TransactionType.EXPENSE)
+                .filter(t -> "EXPENSE".equalsIgnoreCase(t.getType().getName()))
                 .map(Transaction::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -43,16 +44,16 @@ public class FinanceService {
 
         // Group expenses by category
         transactions.stream()
-                .filter(t -> t.getType() == Transaction.TransactionType.EXPENSE)
+                .filter(t -> "EXPENSE".equalsIgnoreCase(t.getType().getName()))
                 .forEach(t -> {
-                    DashboardSummary.CategorySummary summary = categorySummaries.computeIfAbsent(t.getCategory(), 
+                    DashboardSummary.CategorySummary summary = categorySummaries.computeIfAbsent(t.getCategory().getName(), 
                         k -> new DashboardSummary.CategorySummary(BigDecimal.ZERO, BigDecimal.ZERO, 0.0));
                     summary.setSpent(summary.getSpent().add(t.getAmount()));
                 });
 
         // Add budget info
         budgets.forEach(b -> {
-            DashboardSummary.CategorySummary summary = categorySummaries.computeIfAbsent(b.getCategory(), 
+            DashboardSummary.CategorySummary summary = categorySummaries.computeIfAbsent(b.getCategory().getName(), 
                 k -> new DashboardSummary.CategorySummary(BigDecimal.ZERO, BigDecimal.ZERO, 0.0));
             summary.setBudget(b.getLimitAmount());
             if (b.getLimitAmount().compareTo(BigDecimal.ZERO) > 0) {

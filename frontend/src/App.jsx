@@ -16,6 +16,8 @@ const FinanceApp = () => {
   const [transactions, setTransactions] = useState([]);
   const [summary, setSummary] = useState(null);
   const [budgets, setBudgets] = useState([]);
+  const [transactionTypes, setTransactionTypes] = useState([{ name: 'INCOME' }, { name: 'EXPENSE' }]); // Fallback defaults
+  const [categories, setCategories] = useState([{ name: 'Food' }, { name: 'Rent' }, { name: 'Salary' }]); // Fallback
   
   // State for new transaction
   const [newTx, setNewTx] = useState({
@@ -37,14 +39,24 @@ const FinanceApp = () => {
     if (!token) return;
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [txRes, sumRes, budgetRes] = await Promise.all([
+      const [txRes, sumRes, budgetRes, typesRes, catRes] = await Promise.all([
         axios.get('http://localhost:8080/api/transactions', { headers }),
         axios.get(`http://localhost:8080/api/dashboard/summary?monthYear=${monthYear}`, { headers }),
-        axios.get(`http://localhost:8080/api/budgets?monthYear=${monthYear}`, { headers })
+        axios.get(`http://localhost:8080/api/budgets?monthYear=${monthYear}`, { headers }),
+        axios.get('http://localhost:8080/api/transaction-types', { headers }).catch(() => ({ data: [{ name: 'INCOME' }, { name: 'EXPENSE' }] })),
+        axios.get('http://localhost:8080/api/categories', { headers }).catch(() => ({ data: [{ name: 'Food' }, { name: 'Rent' }, { name: 'Salary' }] }))
       ]);
       setTransactions(txRes.data);
       setSummary(sumRes.data);
       setBudgets(budgetRes.data);
+      if (typesRes.data && typesRes.data.length > 0) {
+          setTransactionTypes(typesRes.data);
+      }
+      if (catRes.data && catRes.data.length > 0) {
+          setCategories(catRes.data);
+          setNewTx(prev => ({ ...prev, category: catRes.data[0].name }));
+          setNewBudget(prev => ({ ...prev, category: catRes.data[0].name }));
+      }
     } catch (err) {
       console.error("Error fetching data:", err);
     }
@@ -181,9 +193,9 @@ const FinanceApp = () => {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={budgets.map(b => ({
-                    category: b.category,
+                    category: b.category?.name || 'Unknown',
                     Limit: b.limitAmount,
-                    Actual: summary?.categorySummaries?.[b.category]?.spent || 0
+                    Actual: summary?.categorySummaries?.[b.category?.name]?.spent || 0
                   }))}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="category" />
@@ -227,8 +239,8 @@ const FinanceApp = () => {
                     value={newTx.category}
                     onChange={e => setNewTx({...newTx, category: e.target.value})}
                   >
-                    {['Food', 'Rent', 'Travel', 'Utilities', 'Salary', 'Leisure', 'Misc'].map(c => (
-                      <option key={c} value={c}>{c}</option>
+                    {categories.map(c => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
                     ))}
                   </select>
                   <div className="col-span-2 flex gap-4">
@@ -265,8 +277,8 @@ const FinanceApp = () => {
                     value={newBudget.category}
                     onChange={e => setNewBudget({...newBudget, category: e.target.value})}
                   >
-                    {['Food', 'Rent', 'Travel', 'Utilities', 'Salary', 'Leisure', 'Misc'].map(c => (
-                      <option key={c} value={c}>{c}</option>
+                    {categories.map(c => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
                     ))}
                   </select>
                   <input
@@ -299,6 +311,7 @@ const FinanceApp = () => {
                   <th className="px-6 py-4">Date</th>
                   <th className="px-6 py-4">Description</th>
                   <th className="px-6 py-4">Category</th>
+                  <th className="px-6 py-4">Type</th>
                   <th className="px-6 py-4 text-right">Amount</th>
                   <th className="px-6 py-4"></th>
                 </tr>
@@ -309,10 +322,11 @@ const FinanceApp = () => {
                     <td className="px-6 py-4 text-sm text-gray-600">{tx.date}</td>
                     <td className="px-6 py-4 font-medium text-gray-900">{tx.description}</td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full font-semibold uppercase">{tx.category}</span>
+                      <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full font-semibold uppercase">{tx.category?.name}</span>
                     </td>
-                    <td className={`px-6 py-4 text-right font-bold ${tx.type === 'INCOME' ? 'text-green-600' : 'text-red-600'}`}>
-                      {tx.type === 'INCOME' ? '+' : '-'}${tx.amount.toFixed(2)}
+                    <td className="px-6 py-4 text-sm text-gray-500 font-medium">{tx.type?.name}</td>
+                    <td className={`px-6 py-4 text-right font-bold ${tx.type?.name === 'INCOME' ? 'text-green-600' : tx.type?.name === 'EXPENSE' ? 'text-red-600' : 'text-gray-900'}`}>
+                      {tx.type?.name === 'INCOME' ? '+' : tx.type?.name === 'EXPENSE' ? '-' : ''}${tx.amount?.toFixed(2)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button onClick={() => handleDeleteTransaction(tx.id)} className="text-gray-300 hover:text-red-600 transition-colors">
